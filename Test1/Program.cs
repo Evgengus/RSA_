@@ -67,7 +67,7 @@ namespace Test1
             streamWriter.Close();
             fStream.Close();
         }
-
+        
         //запись в файл с именем name текста text
         static void WriteInFile(string name, BigInteger text)
         {
@@ -80,41 +80,49 @@ namespace Test1
             fStream.Close();
         }
 
-        //возводит число num в степень pow по модулю mod(Метод повторяющихся возведения в квадрат и умножения)(ВОЗМОЖНО МОЖНО УПРОСТИТЬ)
+        //преобразование числа из 10-чной с.с в 2-чную
+        static string DecToBin(BigInteger dec)
+        {
+            string res="";
+            while(dec>0)                                      //
+            {                                                   //
+                res+= dec % 2;                                  //вычисляем сколько едениц в двоичном представлении
+                dec /= 2;                                       //
+            }                                                   //
+            return res;
+        }
+
+        //кол-во вхождений символа ch в строке str
+        static int HowManyContains(string str,char ch)
+        {
+            int res = 0;
+            for (int i =0; i< str.Length; i++)
+            {
+                if (str[i] == ch) res++;
+            }
+            return res;
+        }
+
+        //возводит число num в степень pow по модулю mod(Метод повторяющихся возведения в квадрат и умножения)
         static BigInteger BigIntegerPowMod_eff(BigInteger x, BigInteger pow, BigInteger mod)
         {
             BigInteger res = 1;
+            string pow_bin = DecToBin(pow);                         //двоичная запись числа pow
+            int count_one = HowManyContains(pow_bin, '1');          //сколько вхождений 1 в двоичной записи
 
-            int iter = 0;
-            int count_one = 0;
-            BigInteger pow_buf = pow;   
-            while (pow_buf > 0)         //
-            {                           //
-                iter++;                 //вычисляем сколько разрядов в двоичном представлении
-                pow_buf /= 2;           //
-            }
-
-            BigInteger[] BinArr = new BigInteger[iter];         //массив 0 и 1
-            for (int i = 0; i < iter; i++)                      //
-            {                                                   //
-                BinArr[i] = pow % 2;                            //вычисляем сколько едениц в двоичном представлении
-                if (BinArr[i] == 1) count_one++;                //и записываем 0 и 1 в массив
-                pow /= 2;                                       //
-            }                                                   //
             BigInteger[] arr = new BigInteger[count_one];           //массив конечных множителей
             BigInteger[] arr_pow = new BigInteger[count_one];       //массив степений,чьи позиции соответсвуют каждому множителю
-            BigInteger max_pow = 0;                                 //максимальная степень
-            int buf_i = count_one - 1;          //
-            for (int i = 0; i < iter; i++)      //
-            {                                   //
-                if (BinArr[i] == 1)             //записываем какие степени будут в массив
-                {                               //
-                    if (i > max_pow) max_pow = i;
-                    arr_pow[buf_i] = i;         //и сразу забиваем массив значений начальным значением
-                    arr[buf_i] = x;             //
-                    buf_i--;                    //
-                }                               //
-            }                                   //
+            BigInteger max_pow = pow_bin.Length;                      //максимальная степень
+            int buf_i = count_one - 1;                  //
+            for (int i = 0; i < pow_bin.Length; i++)    //
+            {                                           //
+                if (pow_bin[i] == '1')                  //записываем какие степени будут в массив
+                {                                       //
+                    arr_pow[buf_i] = i;                 //и сразу забиваем массив значений начальным значением
+                    arr[buf_i] = x;                     //
+                    buf_i--;                            //
+                }                                       //
+            }                                           //
 
             for (int i = 0; i < max_pow; i++)                       //
                 for (int j = 0; j < count_one; j++)                 //
@@ -244,7 +252,7 @@ namespace Test1
         }
 
         //алгоритм создания экспонент
-        static void Crypto()
+        static void CreateKeys()
         {
             Console.Write($"{"0%",3}");                 //*просто процент выполнения*
             BigInteger p = 1;                           //
@@ -256,15 +264,9 @@ namespace Test1
             Console.CursorLeft -= 3;                    //
             Console.Write($"{"20%",3}");                //*просто процент выполнения*
             n = q * p;                                  //общая часть ключа
-            Console.CursorLeft -= 3;                    //
-            Console.Write($"{"35%",3}");                //*просто процент выполнения*
             BigInteger eiler = (q - 1) * (p - 1);       //Вычисление функции Эйлера
-            Console.CursorLeft -= 3;                    //
-            Console.Write($"{"45%",3}");                //*просто процент выполнения*
             e = PrimesRand(3, 65521);                       //рандомно берем открытую экспоненту
             while(eiler % e == 0) e = PrimesRand(3, 65521); //
-            Console.CursorLeft -= 3;                    //
-            Console.Write($"{"60%",3}");                //*просто процент выполнения*
             BigInteger d_buf = 1;
             BigInteger k = 0;
             while (d_buf % e != 0)                  //вычисляем
@@ -273,31 +275,27 @@ namespace Test1
                 d_buf = (k * eiler + 1);
             }
             d = d_buf/e;                            //записываем результат в глобальную переменную
-            Console.CursorLeft -= 3;                //
-            Console.Write($"{"75%",3}");            //*просто процент выполнения*
         }
 
         //шифрование числа num
         static BigInteger Encrypt_num(BigInteger num)
         {
-            BigInteger res = BigIntegerPowMod_eff(num, e, n);   //используем метод эффективного возведения num в степень e по модулю n
-            return res;                                         //
+            return BigIntegerPowMod_eff(num, e, n); ;       //используем метод эффективного возведения num в степень e по модулю n
         }
 
         //расшифровка числа num
         static BigInteger Decrypt_num(BigInteger num)
         {
-            BigInteger res = BigIntegerPowMod_eff(num, d, n);   //используем метод эффективного возведения num в степень d по модулю n
-            return res;                                         //
+            return BigIntegerPowMod_eff(num, d, n);         //используем метод эффективного возведения num в степень d по модулю n
         }
 
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Choose action");                                         //
-            Console.WriteLine("1.Create keys and encrypt text from Alice");             //
-            Console.WriteLine("2.Encrypt text from Alice withot create keys");          //меню выбора действия
-            Console.WriteLine("3.Decrypt text from Bob");                               //
+            Console.WriteLine("Choose action:");                                        //
+            Console.WriteLine("1.Encrypt with create new keys");                        //
+            Console.WriteLine("2.Encrypt without create new keys");                     //меню выбора действия
+            Console.WriteLine("3.Decrypt");                                             //
             Console.WriteLine("0.Exit");                                                //
             string ch;
             ch=Console.ReadLine();
@@ -321,7 +319,7 @@ namespace Test1
                 Console.Write("Encrypting:");                               //
                 bytelen = Convert.ToInt32(z)/16;                            //устанавливаем глобалную длину массивов байтов(кол-во бит делим на 2 и переводим в байты)
                 lenforword = bytelen * 4;                                   //устанавливаем глоабльную длину слова
-                Crypto();                                                   //создание ключей
+                CreateKeys();                                               //создание ключей
                 string e_ = DecToHex(e);                                    //
                 string d_ = DecToHex(d);
                 string n_ = DecToHex(n);
@@ -334,26 +332,15 @@ namespace Test1
                 string str = ReadFromFile("Alice.txt");                     //читаем исходное слово из файла Alice.txt
                 int len = str.Length;                                       //длина исходного слова
                 BigInteger[] arr_crypt = new BigInteger[len];               //создания массива для записи в него заифрованных кодов символов
-                /**/
-                //BigInteger[] arrw1 = new BigInteger[len];                   //(del)
-                //BigInteger[] arrw2 = new BigInteger[len];                   //(del)
-                /**/
                 for (int i = 0; i < len; i++)
                 {
                     double iter_double = i;                                     //сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
-                    int progress = (int)(iter_double/len * 25);                 //отображает прогресс
-                    Console.CursorLeft -= 3;                                    //
-                    Console.Write($"{75+progress+"%",3}");                      //
+                    int progress = (int)(iter_double/len * 80);                 //*отображает прогресс
+                    Console.CursorLeft -= 3;                                    //*
+                    Console.Write($"{20+progress+"%",3}");                      //*
                     int x =((int)str.ElementAt(i)*(i+1));                       //шифрование i-го элемента строки и запись результата в массив arr_crypt
                     arr_crypt[i] = Encrypt_num(x);                              //
-                    /**/
-                    //arrw1[i] = x;                                               //ЗАПИСЫВАЕМ ШИФРУЕМОЕ ЗНАЧЕНИЕ(del)
-                    //arrw2[i] = arr_crypt[i];                                    //ШИФР (del)
-                    /**/
                 }
-                /**/
-                //WriteInFile("temp_in.txt", arrw1, arrw2, len);              //ЗАПИСЬ В ФАЙЛ ТАБЛИЦЫ ЗНАЧЕНИЙ И ИХ ШИФРОВ(del)
-                /**/
                 string outBob = "";                                         //создание конечной строки
                 for (int i = 0; i < len; i++)
                 {
