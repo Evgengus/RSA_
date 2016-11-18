@@ -435,91 +435,83 @@ namespace Test1
 
                 string arr_dcrypt = "";                                     //конечная строка
                 int iter = 1;                                               //позиция символа в расшифрованной строке
-                for (int i = 0; i < str.Length; i += bytelen * 12)          //пока не будет достигнут конец файла
+                for (int i = 0; i < str.Length; i += bytelen * 16)          //пока не будет достигнут конец файла
                 {
-                    bool flag_1 = false;
-                    bool flag_2 = false;
-                    bool flag_3 = false;
-                    BigInteger BI_1 = 0;
-                    BigInteger BI_2 = 0;
-                    BigInteger BI_3 = 0;
-                    if (i < str.Length)
+                    bool flag_1 = false;                //инициализация флагов
+                    bool flag_2 = false;                //если true,то Task с тем же номером выполнится
+                    bool flag_3 = false;                //
+                    BigInteger BI_0 = 0;                //инициализцаия переменных куда считаем слова(1 слово в шифре = 1 символ в изначальном тексте)
+                    BigInteger BI_1 = 0;                //
+                    BigInteger BI_2 = 0;                //
+                    BigInteger BI_3 = 0;                //
+                    BI_0 = ReadNextSymbols(str, i);                                     //без проверки читаем слово
+                    if (BI_0 < 0) BI_1 = plusforbytes(bytelen * 2) + BI_0;              //ибо цикл сюда не зашел бы,если бы не мог читать
+                    if ((i + bytelen * 4) < str.Length)                                 //если можем считать еще 1 слово,после 1-го
                     {
-                        BI_1 = ReadNextSymbols(str, i);
-                        if (BI_1 < 0) BI_1 = plusforbytes(bytelen * 2) + BI_1;
-                        flag_1 = true;
+                        BI_1 = ReadNextSymbols(str, i + bytelen * 4);                   //читаем слово
+                        if (BI_1 < 0) BI_1 = plusforbytes(bytelen * 2) + BI_1;          //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
+                        flag_1 = true;                                                  //поднимаем флаг что прочитали 2 слова
                     }
-                    if ((i + bytelen * 4) < str.Length)
+                    if ((i + bytelen * 8) < str.Length)                                 //если можем считать еще 1 слово,после 2-го
                     {
-                        BI_2 = ReadNextSymbols(str, i + bytelen * 4);
-                        if (BI_2 < 0) BI_2 = plusforbytes(bytelen * 2) + BI_2;
-                        flag_2 = true;
+                        BI_2 = ReadNextSymbols(str, i + bytelen * 8);                   //читаем слово
+                        if (BI_2 < 0) BI_2 = plusforbytes(bytelen * 2) + BI_2;          //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
+                        flag_2 = true;                                                  //поднимаем флаг что прочитали 3 слова
                     }
-                    if ((i + bytelen * 8) < str.Length)
+                    if ((i + bytelen * 12) < str.Length)                                //если можем считать еще 1 слово,после 3-го
                     {
-                        BI_3 = ReadNextSymbols(str, i + bytelen * 8);
-                        if (BI_3 < 0) BI_3 = plusforbytes(bytelen * 2) + BI_3;
-                        flag_3 = true;
+                        BI_3 = ReadNextSymbols(str, i + bytelen * 12);                  //читаем слово
+                        if (BI_3 < 0) BI_3 = plusforbytes(bytelen * 2) + BI_3;          //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
+                        flag_3 = true;                                                  //поднимаем флаг что прочитали 4 слова
                     }
-   
-                    BigInteger lol_1 = 0;
-                    BigInteger lol_2 = 0;
-                    BigInteger lol_3 = 0;
-                    int res_1 = 0;
-                    int res_2 = 0;
-                    int res_3 = 0;
-
-                    if (flag_1)
+                    Task<BigInteger> task_1 = new Task<BigInteger>(() => { return Decrypt_num(BI_1); });    //Task это параллельная задача
+                    Task<BigInteger> task_2 = new Task<BigInteger>(() => { return Decrypt_num(BI_2); });    //Task будет вызван если прочитали слово для task'а
+                    Task<BigInteger> task_3 = new Task<BigInteger>(() => { return Decrypt_num(BI_3); });    //
+                    BigInteger decr_0 = 0;                      //в эти переменные запишем расшифрованные слова
+                    BigInteger decr_1 = 0;                      //
+                    BigInteger decr_2 = 0;                      //
+                    BigInteger decr_3 = 0;                      //
+                    int res_0 = 0;                              //в эти переменные запишем конечный код символа
+                    int res_1 = 0;                              //
+                    int res_2 = 0;                              //
+                    int res_3 = 0;                              //
+                    if (flag_1) task_1.Start();                         //если прочитано 2 слова-запускаем task в параллельный процесс(итого 2 прцоесса)
+                    if (flag_2) task_2.Start();                         //если прочитано 3 слова-запускаем task в параллельный процесс(итого 3 процесса)
+                    if (flag_3) task_3.Start();                         //если прочитано 4 слова-запускаем task в параллельный процесс(итого 4 процесса)
+                    decr_0 = Decrypt_num(BI_0);                         //расшифровываем слово
+                    res_0 = (int)(decr_0 / iter);                       //делим расшифрованное число,для получение начального числа
+                    if (flag_1)                                         //если прочитано 2 слова
                     {
-                        Task<BigInteger> task_1 = new Task<BigInteger>(() =>
+                        task_1.Wait();                                  //ждем завершения процесса с task_1
+                        decr_1 = task_1.Result;                         //записываем расшифрованный результат 
+                        res_1 = (int)(decr_1 / (iter + 1));             //делим расшифрованное число,для получение начального числа
+                    }
+                    if (flag_2)                                         //если прочитано 3 слова
+                    {
+                        task_2.Wait();                                  //ждем завершения процесса с task_2
+                        decr_2 = task_2.Result;                         //записываем расшифрованный результат 
+                        res_2 = (int)(decr_2 / (iter + 2));             //делим расшифрованное число,для получение начального числа
+                    }
+                    if (flag_3)                                         //если прочитано 4 слова
+                    {   
+                        task_3.Wait();                                  //ждем завершения процесса с task_3
+                        decr_3 = task_3.Result;                         //записываем расшифрованный результат 
+                        res_3 = (int)(decr_3 / (iter + 3));             //делим расшифрованное число,для получение начального числа
+                    }
+                    iter += 4;                                          //увеличиваем число,на которое делимм
+                    arr_dcrypt += Convert.ToChar(res_0).ToString();     //преобразуем код символа в символ,и записываем в конечную строку 1 символ
+                    if (flag_1)                                                 //если прочитано 2 слова
+                    {
+                        arr_dcrypt += Convert.ToChar(res_1).ToString();         //преобразуем код символа в символ,и записываем в конечную строку 2 символ
+                        if (flag_2)                                             //если прочитано 3 слова
                         {
-                            return Decrypt_num(BI_1);
-                        });
-                        task_1.Start();
-                        if (flag_2)
-                        {
-                            Task<BigInteger> task_2 = new Task<BigInteger>(() =>
-                            {
-                                return Decrypt_num(BI_2);
-                            });
-                            task_2.Start();
-                            if (flag_3)
-                            {
-                                Task<BigInteger> task_3 = new Task<BigInteger>(() =>
-                                {
-                                    return Decrypt_num(BI_3);
-                                });
-                                task_3.Start();
-                                task_3.Wait();
-                                lol_3 = task_3.Result;
-                                res_3 = (int)(lol_3 / (iter + 2));
-                            }
-                            task_2.Wait();
-                            lol_2 = task_2.Result;
-                            res_2 = (int)(lol_2 / (iter + 1));
-                        }
-                        task_1.Wait();
-                        lol_1 = task_1.Result;
-                        res_1 = (int)(lol_1 / iter);
-                    }
-                    //if (BI_0 < 0) BI_0 = plusforbytes(bytelen * 2) + BI_0;      //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
-                    //BigInteger lol_0 = Decrypt_num(BI_0);                         //расшифровываем в новый экземпляр BigInteger
-                    //int res_0 = (int)(lol_0 / iter);                              //
-                    iter += 3;                                                       //увеличиваем число,на которое делимм
-                    if (flag_1)
-                    {
-                        arr_dcrypt += Convert.ToChar(res_1).ToString();
-                        if (flag_2)
-                        {
-                            arr_dcrypt += Convert.ToChar(res_2).ToString();
-                            if (flag_3)
-                            {
-                                arr_dcrypt += Convert.ToChar(res_3).ToString();
+                            arr_dcrypt += Convert.ToChar(res_2).ToString();     //преобразуем код символа в символ,и записываем в конечную строку 3 символ
+                            if (flag_3)                                         //если прочитано 4 слова
+                            {   
+                                arr_dcrypt += Convert.ToChar(res_3).ToString(); //преобразуем код символа в символ,и записываем в конечную строку 4 символ
                             }
                         }
                     }
-                    //arr_dcrypt = arr_dcrypt + Convert.ToChar(res_0).ToString();   //преобразуем код символа в символ,и вставляем в конечную строку
-
                     double iter_double = iter - 1;                                          //*сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
                     int progress = (int)((iter_double * lenforword) / str.Length * 100);    //*вычисляем процент
                     Console.SetCursorPosition(cursor_left_temp, cursor_top_temp);           //*переходим на заданную позицию
