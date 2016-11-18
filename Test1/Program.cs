@@ -358,16 +358,14 @@ namespace Test1
             else if (ch == "2")                                         //при выборе 2 мы шифруем текст по уже имеющися ключам
             {
                 Console.CursorTop--;
-                Console.Write($"Encrypting:{"0%",3}");                               //
-                string secret_key = ReadFromFile("secret_key.txt");         //буфферная строка,для определения глобальной длины массива байтов
-                bytelen = secret_key.Length / 4;                            //устанавливаем глобалную длину массивов байтов
+                Console.Write($"Encrypting:{"0%",3}");                      //
+                string open_key = ReadFromFile("open_key.txt");             //буфферная строка,для определения глобальной длины массива байтов
+                bytelen = (open_key.Length-4) / 4;                          //устанавливаем глобалную длину массивов байтов
                 lenforword = bytelen * 4;                                   //устанавливаем глоабльную длину слова
                 string n_ = "";
-                string e_ = "";
-                e_ = ReadFromFile("open_key.txt");                          //считываем ключи из файла
-                for (int i = 4; i < e_.Length; i++) n_ += e_[i];
-                e_ = e_.Remove(4);
-                e = HexToDec(e_+"00");
+                for (int i = 4; i < open_key.Length; i++) n_ += open_key[i];
+                open_key = open_key.Remove(4);
+                e = HexToDec(open_key+ "00");
                 n = HexToDec(n_);
                 string str = ReadFromFile("Alice.txt");                     //читаем исходное слово из файла Alice.txt
                 int len = str.Length;                                       //длина исходного слова
@@ -375,10 +373,11 @@ namespace Test1
                 for (int i = 0; i < len; i++)
                 {
                     double iter_double = i;                                     //сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
-                    int progress = (int)(iter_double / len * 100);               //отображает прогресс
-                    Console.CursorLeft -= 3;                                    //
-                    Console.Write($"{progress + "%",3}");                  //
-                    arr_crypt[i] = Encrypt_num(str.ElementAt(i) * (i + 1));     //шифрование i-го элемента строки и запись результата в массив arr_crypt
+                    int progress = (int)(iter_double / len * 100);              //*отображает прогресс
+                    Console.CursorLeft -= 3;                                    //*
+                    Console.Write($"{progress + "%",3}");                       //*
+                    int x = ((int)str.ElementAt(i) * (i + 1));                  //шифрование i-го элемента строки и запись результата в массив arr_crypt
+                    arr_crypt[i] = Encrypt_num(x);                              //
                 }
                 string outBob = "";                                         //создание конечной строки
                 for (int i = 0; i < len; i++)                               //
