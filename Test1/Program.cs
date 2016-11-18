@@ -155,48 +155,62 @@ namespace Test1
             return res;
         }
 
+        //Вероятностный тест простоты Миллера-Рабина 
+        static bool MillersRabinsTest(BigInteger n)
+        {
+            bool flag_prime = false;
+            bool flag_composite=false;                  //флаг,true если число составное
+            BigInteger n_minus = n - 1;                 //n-1=2^r*d
+            BigInteger r = 0;                           //степень двойки
+            BigInteger k = 0;                           //кол-во раундов
+            BigInteger d = n_minus;                     //множитель из формулы выше
+            while (d % 2 == 0) { r++; d /= 2; }         //считаем r и d
+            while (n != 1) { k++; n /= 2; }   //подобие логарифма по основанию 2,log(2)n_temp=k
+            for (BigInteger i = 0; i < k; i++)          //
+            {
+                BigInteger a = n + 1;                         //создаем возможного свидетеля простоты
+                while (a >= n_minus+1)                              //
+                {
+                    a = getRandom(bytelen);                         //ищем а<n, случайным образом
+                    if (a < 0) a = plusforbytes(bytelen) + a;       //решение проблемы с переводом байтов в BigInteger
+                }
+                BigInteger x = BigIntegerPowMod_eff(a, d, n_minus + 1); //x=a^d mod n, эффективный способ
+                if (x != 1 && x != n_minus)                             //Если x не равен 1 или n-1
+                {
+                    bool temp_flag = false;                         //флаг продолжения работы,true если число не простое НО и не составное (еще не определили)
+                    for (BigInteger j = 0; j < r - 1; j++)          //
+                    {
+                        x = myPow(x, 2) % (n_minus + 1);                //x^2 mod n
+                        if (x == 1) flag_composite = true;              //если х равен 1 то составное
+                        if (x == n_minus) temp_flag = true;             //если х равен n-1 то продолжить проверку с другими возможными свидетелями
+                    }
+                    if (!temp_flag) flag_composite = true;          //если флаг продолжения работы не поднят,то число составное
+                }
+                if (flag_composite) i = k;                      //если число составное то закончим цикл
+                else if (i == k - 1) flag_prime = true;         //если цикл закончился,а предположение о простоте числа не опровергнуто,то число простое
+            }
+            return flag_prime;
+        }
+
         //создание случайного простого числа BigInteger (ВОЗОЖНО МОЖНО УПРОСТИТЬ ЛОГИКУ)
         static BigInteger getPrime()
         {
-            bool flag_prime = false;                //флаг простоты (true если число простое)
             BigInteger res = 1;                     //результирующая переменная
-            while (!flag_prime)                     //
+            while (res==1)                          //
             {
-                bool flag_composite = false;                //флаг,true если число составное
-                BigInteger n = 0;                           //создаем число
-                while (n % 2 == 0 || n==1) n = getRandom(bytelen);  //ищем нечетное число
-                if (n < 0) n = plusforbytes(bytelen) + n;   //решение проблемы с переводом байтов в BigInteger
-                BigInteger n_temp = n;                      //временная переменная,которая в итоге превратится в 1
-                BigInteger n_minus = n - 1;                 //n-1=2^r*d
-                BigInteger r = 0;                           //степень двойки
-                BigInteger k = 0;                           //кол-во раундов
-                BigInteger d = n_minus;                     //множитель из формулы выше
-                while (d % 2 == 0) { r++; d /= 2; }         //считаем r и d
-                while (n_temp != 1) { k++; n_temp /= 2; }   //подобие логарифма по основанию 2,log(2)n_temp=k
-                for (BigInteger i = 0; i < k; i++)          //
-                {
-                    BigInteger a = n+1;                         //создаем возможного свидетеля простоты
-                    while (a >= n)                              //
-                    {
-                        a = getRandom(bytelen);                         //ищем а<n, случайным образом
-                        if (a < 0) a = plusforbytes(bytelen) + a;       //решение проблемы с переводом байтов в BigInteger
-                    }
-                    BigInteger x = BigIntegerPowMod_eff(a, d, n);   //x=a^d mod n, эффективный способ
-                    if (x != 1 && x != n_minus)                     //Если x не равен 1 или n-1
-                    {
-                        bool temp_flag = false;                         //флаг продолжения работы,true если число не простое НО и не составное (еще не определили)
-                        for (BigInteger j = 0; j < r - 1; j++)          //
-                        {
-                            x = myPow(x, 2) % n;                            //x^2 mod n
-                            if (x == 1) flag_composite = true;              //если х равен 1 то составное
-                            if (x == n_minus) temp_flag = true;             //если х равен n-1 то продолжить проверку с другими возможными свидетелями
-                        }
-                        if (!temp_flag) flag_composite = true;          //если флаг продолжения работы не поднят,то число составное
-                    }
-                    if (flag_composite) i = k;                      //если число составное то закончим цикл
-                    else if (i == k - 1) flag_prime = true;         //если цикл закончился,а предположение о простоте числа не опровергнуто,то число простое
-                }
-                if (flag_prime) res = n;                        //если число простое,то записать в результат
+                BigInteger n = 0;                                               //создаем число
+                while (n % 2 == 0 || n == 1) n = getRandom(bytelen);            //ищем нечетное число
+                if (n < 0) n = plusforbytes(bytelen) + n;                       //решение проблемы с переводом байтов в BigInteger
+
+                BigInteger m = 0;                                               //создаем число для параллельной проверки
+                while (m % 2 == 0 || m == 1 || m==n) m = getRandom(bytelen);    //ищем нечетное число
+                if (m < 0) m = plusforbytes(bytelen) + m;                       //решение проблемы с переводом байтов в BigInteger
+
+                Task<bool> task_1 = new Task<bool>(() => { return MillersRabinsTest(m); });
+                task_1.Start();
+                if (MillersRabinsTest(n)) res = n;
+                task_1.Wait();
+                if (task_1.Result) res = m;
             }
             return res;
         }
@@ -304,7 +318,8 @@ namespace Test1
                 BN[j] = Convert.ToByte(Convert.ToInt32(srt, 16));           //переводим их из 16ричной системы в число,и записываем в массив байтов
                 srt = "";                                                   //обнуление строки
             }
-            BigInteger BI = new BigInteger(BN);                         //создаем экземпляр BigInteger из массива байтов
+            BigInteger BI = new BigInteger(BN);                     //создаем экземпляр BigInteger из массива байтов
+            if (BI < 0) BI = plusforbytes(bytelen * 2) + BI;        //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
             return BI;
         }
 
