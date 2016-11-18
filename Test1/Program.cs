@@ -164,7 +164,7 @@ namespace Test1
             {
                 bool flag_composite = false;                //флаг,true если число составное
                 BigInteger n = 0;                           //создаем число
-                while (n % 2 == 0) n = getRandom(bytelen);  //ищем нечетное число
+                while (n % 2 == 0 || n==1) n = getRandom(bytelen);  //ищем нечетное число
                 if (n < 0) n = plusforbytes(bytelen) + n;   //решение проблемы с переводом байтов в BigInteger
                 BigInteger n_temp = n;                      //временная переменная,которая в итоге превратится в 1
                 BigInteger n_minus = n - 1;                 //n-1=2^r*d
@@ -255,13 +255,19 @@ namespace Test1
         static void CreateKeys()
         {
             Console.Write($"{"0%",3}");                 //*просто процент выполнения*
-            BigInteger p = 1;                           //
-            BigInteger q = 1;                           //
-            while (p == 1) p = getPrime();              //создание 1-го простого числа
+            Task<BigInteger> p_ = new Task<BigInteger>(getPrime);
+            Task<BigInteger> q_ = new Task<BigInteger>(getPrime);
+            p_.Start();
+            Thread.Sleep(1);
+            q_.Start();
+            p_.Wait();
+            BigInteger p = p_.Result;                   //создание 1-го простого числа
             Console.CursorLeft -= 3;                    //*просто процент выполнения*
-            Console.Write($"{"10%",3}");                //
-            while (q == 1 || p==q) q = getPrime();      //создание 2-го простого числа
-            Console.CursorLeft -= 3;                    //
+            Console.Write($"{"10%",3}");                //*
+            q_.Wait();
+            BigInteger q = q_.Result;                   //создание 2-го простого числа
+            while (q==p) q = getPrime();                //изменение 2-го простого числа если оно совпадает с 1-ым
+            Console.CursorLeft -= 3;                    //*
             Console.Write($"{"20%",3}");                //*просто процент выполнения*
             n = q * p;                                  //общая часть ключа
             BigInteger eiler = (q - 1) * (p - 1);       //Вычисление функции Эйлера
@@ -401,11 +407,11 @@ namespace Test1
                 string n_ = "";
                 for (int i = str_buff.Length / 2; i < str_buff.Length; i++) n_ += str_buff[i];
                 str_buff = str_buff.Remove(str_buff.Length / 2);
-                n = HexToDec(n_);
-                d = HexToDec(str_buff);                                     // 
                 bytelen = str_buff.Length / 4;                              //устанавливаем глобалную длину массивов байтов
                 lenforword = bytelen * 4;                                   //устанавливаем глоабльную длину слова
-                
+                n = HexToDec(n_);
+                d = HexToDec(str_buff);                                     // 
+
                 string str = ReadFromFile("Bob.txt");                       //
 
                 int cursor_top_temp = Console.CursorTop;                    //Сохраняем позицию указателя от верхнего края
