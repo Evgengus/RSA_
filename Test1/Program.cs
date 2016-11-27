@@ -31,10 +31,21 @@ namespace Test1
         }
 
         //чтение из файла
-        static string ReadFromFile(string name) {
+        static byte[] ReadFromFile(string name) {
+            FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
+            BinaryReader sr = new BinaryReader(fs,Encoding.ASCII);                      //ЛИБО АСКИ ЛИБО НЕ РАБОТАЕТ,ВОТ ЭТО ВОТ Я НЕ ПОНЯЛ 
+            byte[] b = new byte[fs.Length];
+            b= sr.ReadBytes((int)fs.Length);
+            sr.Close();
+            fs.Close();
+            return b;
+        }
+
+        static string ReadFromTextFile(string name)
+        {
             string str = "";
-            FileStream fs = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Read);
-            StreamReader sr = new StreamReader(fs,enc);
+            FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
+            StreamReader sr = new StreamReader(fs,enc);                      //ЛИБО АСКИ ЛИБО НЕ РАБОТАЕТ,ВОТ ЭТО ВОТ Я НЕ ПОНЯЛ 
             str = sr.ReadToEnd();
             sr.Close();
             fs.Close();
@@ -42,7 +53,7 @@ namespace Test1
         }
 
         //запись в файл с именем name текста text
-        static void WriteInFile(string name, string text)
+        static void WriteInTextFile(string name, string text)
         {
             File.Delete(name);
             FileStream fStream = new FileStream(name, FileMode.OpenOrCreate);
@@ -69,7 +80,7 @@ namespace Test1
         }
         
         //запись в файл с именем name текста text
-        static void WriteInFile(string name, BigInteger text)
+        static void WriteInTextFile(string name, BigInteger text)
         {
             File.Delete(name);
             FileStream fStream = new FileStream(name, FileMode.OpenOrCreate);
@@ -77,6 +88,14 @@ namespace Test1
             streamWriter.BaseStream.Seek(0, SeekOrigin.End);
             streamWriter.Write(text);
             streamWriter.Close();
+            fStream.Close();
+        }
+
+        static void WriteInFile(string name, byte[] text)
+        {
+            File.Delete(name);
+            FileStream fStream = new FileStream(name, FileMode.OpenOrCreate);
+            fStream.Write(text,0,text.Length);
             fStream.Close();
         }
 
@@ -306,22 +325,13 @@ namespace Test1
             return BigIntegerPowMod_eff(num, d, n);         //используем метод эффективного возведения num в степень d по модулю n
         }
 
-        static BigInteger ReadNextSymbols(string str, int i)
+        //Копировать из массива байт с позиции а(включительно) до b(исключительно)
+        static byte[] CopyTo(byte[] bt, int a, int b)
         {
-            byte[] BN = new byte[bytelen * 2];                          //создаем массив байтов,размер соответсвует полудлине слова(1 байт это 2 16-ричных символа)
-            string srt = "";                                            //
-            int buf = 2 * bytelen;                                      //кол-во байт в каждом слове
-            for (int j = 0; j < buf; j++)                               //считываем внутри цикла пары чисел(1 байт) в массив байтов
-            {
-                srt += Convert.ToChar(str[i + j * 2]);                      //читаем следующие 2 символа
-                srt += Convert.ToChar(str[i + 1 + j * 2]);                  //
-                BN[j] = Convert.ToByte(Convert.ToInt32(srt, 16));           //переводим их из 16ричной системы в число,и записываем в массив байтов
-                srt = "";                                                   //обнуление строки
-            }
-            BigInteger BI = new BigInteger(BN);                     //создаем экземпляр BigInteger из массива байтов
-            if (BI < 0) BI = plusforbytes(bytelen * 2) + BI;        //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
-            return BI;
-        }
+            byte[] bt_ = new byte[b - a];
+            for (int i = a; i < b; i++) bt_[i - a] = bt[i];
+            return bt_;
+        } 
 
         static void Main(string[] args)
         {
@@ -338,8 +348,9 @@ namespace Test1
                 Console.WriteLine("Invalid value! Try again");              //реакция на не правильный ввод команды
                 ch = Console.ReadLine();
             }
-            if (ch == "1")                                              //Шифруем текст из файла Alice
+            if (ch == "1")                                              //Шифруем текст из файла
             {
+                int time = DateTime.Now.Minute * 60 + DateTime.Now.Second;  //записываем исходное время,для подсчета времени работы программы
                 Console.Write("Enter key length(in bit):");                 //
                 string z = "";                                              //
                 z += Console.ReadLine();                                    //задаем длину ключа в битах
@@ -349,192 +360,304 @@ namespace Test1
                     Console.Write("Invalid value! Try again:");                 //защита от дурака
                     z += Console.ReadLine();                                    //
                 }                                                           //
+                Console.Write("File name:");                                //спрашиваем имя файла
+                string name;                                                //имя файла
+                name = Console.ReadLine();                                  //
+                while (!File.Exists(name))                              //проверка на существование файла
+                {
+                    Console.Write("File not exists,try again:");        //иначе спросить снова имя файла
+                    name = Console.ReadLine();                          //
+                }
                 Console.Write("Encrypting:");                               //
                 bytelen = Convert.ToInt32(z)/16;                            //устанавливаем глобалную длину массивов байтов(кол-во бит делим на 2 и переводим в байты)
-                lenforword = bytelen * 4;                                   //устанавливаем глоабльную длину слова
                 CreateKeys();                                               //создание ключей
-                string e_ = DecToHex(e);                                    //
-                string d_ = DecToHex(d);
-                string n_ = DecToHex(n);
-                while (d_.Length > n_.Length) n_ += "00";                   //подгоняе длину n под длину d
-                while (d_.Length < n_.Length) n_ = n_.Remove(n_.Length-2);  //
-                if (e_.Length > 4) e_=e_.Remove(4);                         //урезаем e до 4 символов(значение не превышает 2 байта)
-                else if (e_.Length < 4) e_ += "00";                         //длина открытого ключа всегда 4 символа!
-                WriteInFile("open_key.txt", e_+n_);                         //
-                WriteInFile("secret_key.txt", d_+n_);                       //сохраняем в файлы ключи(+общая часть ключа)
-                string str = ReadFromFile("Alice.txt");                     //читаем исходное слово из файла Alice.txt
-                int len = str.Length;                                       //длина исходного слова
-                BigInteger[] arr_crypt = new BigInteger[len];               //создания массива для записи в него заифрованных кодов символов
-                for (int i = 0; i < len; i++)
+                byte[] e_ = e.ToByteArray();                                //переводим все ключи в массивы байтов
+                byte[] d_ = d.ToByteArray();                                //
+                byte[] n_ = n.ToByteArray();                                //
+                if (d_.Length > n_.Length)                                  //уравнение длины ключа n до длины ключа d
                 {
-                    double iter_double = i;                                     //*сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
+                    byte[] x = new byte[d_.Length];                             //если длина n меньше длины d
+                    for (int i = 0; i < n_.Length; i++) x[i] = n_[i];           //
+                    for (int i = n_.Length + 1; i < x.Length; i++) x[i] = 0;    //
+                    n_ = x;                                                     //
+                }
+                if (d_.Length < n_.Length)                                  //если длина n больше длины d
+                {
+                    byte[] x = new byte[d_.Length];                             //
+                    for (int i = 0; i < x.Length; i++) x[i] = n_[i];            //
+                    n_ = x;                                                     //
+                } 
+                byte[] dn = new byte[d_.Length * 2];                        //массив который вместит ключи d и n
+                for (int i = 0; i < d_.Length; i++) dn[i] = d_[i];                      //записываем ключ d
+                for (int i = d_.Length; i < dn.Length; i++) dn[i] = n_[i - d_.Length];  //записываем ключ n
+                if (e_.Length == 3)                                         //(значение не превышает 2 байта)
+                {
+                    byte[] x = new byte[2];                                     //если лишний нулевой байт,то удалим его
+                    x[0] = e_[0]; x[1] = e_[1];                                 //
+                    e_ = x;                                                     //
+                }
+                else if (e_.Length == 1)                                    //если значение уестилось в 1 байт,то допишем нулевой байт
+                {
+                    byte[] x = new byte[2];                                     //
+                    x[0] = e_[0]; x[1] = 0;                                     //
+                    e_ = x;                                                     //
+                }
+                byte[] en = new byte[e_.Length +n_.Length];                 //массив содержащий ключи e и n
+                for (int i = 0; i < e_.Length; i++) en[i] = e_[i];                      //записываем ключ e
+                for (int i = e_.Length; i < en.Length; i++) en[i] = n_[i - e_.Length];  //записываем ключ n
+                WriteInFile("open_key", en);                            //
+                WriteInFile("secret_key", dn);                          //сохраняем в файлы ключи(+общая часть ключа)
+                byte[] str = ReadFromFile(name);                        //читаем побайтно исходный файл
+                int len = str.Length;                                   //длина исходного слова(байты)
+                BigInteger[] arr_crypt = new BigInteger[len];           //создание массива для записи в него зашифрованных байтов
+                for (int i = 0; i < len; i+=8)                          //ПРОЦЕСС ШИФРОВАНИЯ
+                {
+                    double iter_double = i+1;                                   //*сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
                     int progress = (int)(iter_double/len * 80);                 //*отображает прогресс
                     Console.CursorLeft -= 3;                                    //*
-                    Console.Write($"{20+progress+"%",3}");                      //*
-                    int x =((int)str.ElementAt(i)*(i+1));                       //шифрование i-го элемента строки и запись результата в массив arr_crypt
-                    arr_crypt[i] = Encrypt_num(x);                              //
-                }
-                string outBob = "";                                         //создание конечной строки
-                for (int i = 0; i < len; i++)
-                {
-                    byte[] BY = arr_crypt[i].ToByteArray();                     //преобразовали BigInteger в массив байтов
-                    string s = "";                                              //
-                    s = BitConverter.ToString(BY).Replace("-", "");             //записываем массив байтов в строку в 16 ричной системе,заменяя "-" на ""
-                    while (s.Length < lenforword) s = s.Insert(s.Length, "0");  //добивание коротких слов нулями
-                    if (s.Length > lenforword) s = s.Remove(lenforword);        //убираем незначащие нули в слишком длинных словах
-                    outBob += s;                                                //запись в конечную строку
-                }
+                    Console.Write($"{20+progress+"%",3}");                      //* 
 
-                WriteInFile("Bob.txt", outBob);                             //запись в файл зашифрованного сообщения
-                Console.WriteLine(); Console.WriteLine("Ready");            //
+                    bool[] flag = new bool[8];                                  //массив флагов для обозначения кол-ва потоков
+                    for (int j = 0; j < 8; j++) flag[j] = false;                //заполняе их false
+                    byte[] b = new byte[8];                                     //массив байт куда запишем элементы входной строки
+                    for (int j = 0; j < 8; j++)                                 //проверка сколько можно прочитать символов после i-го
+                    {
+                        if ((i + j) < len)                                      //если есть что читать
+                        {
+                            b[j] = str[i + j];                                  //читаем
+                            flag[j] = true;                                     //и подниамем флаг
+                        }
+                        else j = 7;                                             //иначе закончить цикл
+                    }    
+                    Task<BigInteger>[] task = new Task<BigInteger>[7];                      //массив тасков
+                    task[0] = new Task<BigInteger>(() => { return Encrypt_num(b[1]); });    //Task это параллельная задача
+                    task[1] = new Task<BigInteger>(() => { return Encrypt_num(b[2]); });    //Task будет вызван если прочитали слово для task'а
+                    task[2] = new Task<BigInteger>(() => { return Encrypt_num(b[3]); });    //
+                    task[3] = new Task<BigInteger>(() => { return Encrypt_num(b[4]); });    //НА КАЖДЫЙ ТАСК  
+                    task[4] = new Task<BigInteger>(() => { return Encrypt_num(b[5]); });    //СТАТИЧЕСКИ ЗАДАЕМ СООТВЕТСТВИЕ
+                    task[5] = new Task<BigInteger>(() => { return Encrypt_num(b[6]); });    //С ШИФРУЕМЫМИ ЭЛЕМЕНТАМИ МАССИВА
+                    task[6] = new Task<BigInteger>(() => { return Encrypt_num(b[7]); });    //
+                    for (int j = 1; j < 8; j++)                                         //7 раз проверяем флаги
+                    {
+                        if (flag[j])                                                    //если флаг поднят,то запустить task
+                            task[j - 1].Start();                                        //
+                        else j = 7;                                                     //иначе закончить цикл
+                    }
+                    arr_crypt[i] = Encrypt_num(b[0]);                                   //записываем в массив зашифрованных чисел 1 число
+                    for (int j = 1; j < 8; j++)                                         //потом через проверку флагов дописываем результаты из потоков
+                    {
+                        if (flag[j])                                                    //если флаг поднят
+                        {
+                            task[j - 1].Wait();                                         //ждем завершения вычислений
+                            arr_crypt[i + j] = task[j - 1].Result;                      //запсиываем
+                        }
+                        else j = 7;                                                     //иначе закончить цикл
+                    }
+                }
+                byte[] name_ = Encoding.ASCII.GetBytes(name);                       //запишем имя файла в массив байтов
+                int lenname = name_.Length;                                         //длина имени
+                byte[] outBob = new byte[arr_crypt.Length*bytelen*2+1+lenname];           //создание конечной строки(размер исходного файла*на длину ключа в байтах+размер имени+имя файла)
+                outBob[0] = Convert.ToByte(lenname);                                //записываем в 0 элемент длину имени
+                for (int i = 1; i < lenname + 1; i++) outBob[i] = name_[i - 1];     //записываем имя
+                int iter = 0;                                                       //итератор для конечного массива байт
+                for (int i = 0; i < len; i++)                                       //
+                {
+                    byte[] BY = new byte[bytelen * 2];                                          //создаем массив байтов длины в байтах одного заифрованного байта
+                    byte[] x  = arr_crypt[i].ToByteArray();                                     //преобразовали BigInteger в массив байтов
+                    if (x.Length <= bytelen * 2)                                                //если длина массива оказалась меньше ожидаемой,то дополняем нулями
+                    {
+                        for (int j = 0; j < x.Length; j++) BY[j] = x[j];                            //
+                        for (int j = x.Length; j < BY.Length; j++) BY[j] = 0;                       //
+                    }
+                    if (x.Length > bytelen * 2)                                                 //Если оказалась больше,то уберем незначащие нули
+                        BY = CopyTo(x, 0, BY.Length);                                               //
+                    for (int j = 0; j < bytelen * 2; j++) outBob[j + iter+lenname+1] = BY[j];   //добавляем в конечный массив массив этой итерации цикла
+                    iter += bytelen * 2;                                                        //наращиваем итератор(прибавляем столько,сколько весит 1 зашифрованный байт)
+                }
+                WriteInFile("Bob", outBob);                                         //запись в файл зашифрованного сообщения
+                Console.WriteLine();                                                //
+                time = DateTime.Now.Minute * 60 + DateTime.Now.Second - time;       //вычисляе затраченное время
+                Console.WriteLine($"Your time {time + "sec",7}. Ready");            //выводим время и сообщение о завершении работы
             }
             /**/
             /**/
             else if (ch == "2")                                         //при выборе 2 мы шифруем текст по уже имеющися ключам
             {
-                Console.CursorTop--;
-                Console.Write($"Encrypting:{"0%",3}");                      //
-                string open_key = ReadFromFile("open_key.txt");             //буфферная строка,для определения глобальной длины массива байтов
-                bytelen = (open_key.Length-4) / 4;                          //устанавливаем глобалную длину массивов байтов
-                lenforword = bytelen * 4;                                   //устанавливаем глоабльную длину слова
-                string n_ = "";
-                for (int i = 4; i < open_key.Length; i++) n_ += open_key[i];
-                open_key = open_key.Remove(4);
-                e = HexToDec(open_key+ "00");
-                n = HexToDec(n_);
-                string str = ReadFromFile("Alice.txt");                     //читаем исходное слово из файла Alice.txt
-                int len = str.Length;                                       //длина исходного слова
-                BigInteger[] arr_crypt = new BigInteger[len];               //создания массива для записи в него заифрованных кодов символов
-                for (int i = 0; i < len; i++)
+                int time = DateTime.Now.Minute * 60 + DateTime.Now.Second;  //записываем исходное время,для подсчета времени работы программы
+                Console.Write("File name:");                                //спрашиваем имя файла
+                string name;                                                //запишем это в name
+                name = Console.ReadLine();                                  //
+                while (!File.Exists(name))                                  //проверка на существование файла
                 {
-                    double iter_double = i;                                     //сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
+                    Console.Write("File not exists,try again:");                //если такого нет
+                    name = Console.ReadLine();                                  //то спросить снова имя файла
+                }
+                Console.Write($"Encrypting:{"0%",3}");                  //
+                byte[] open_key = ReadFromFile("open_key");             //буфферная строка,для определения глобальной длины массива байтов
+                bytelen = (open_key.Length-2) / 2;                      //устанавливаем глобалную длину массивов байтов
+                byte[] n_ = CopyTo(open_key, 2, open_key.Length);       //в массив байтов из входной строки копируем часть с ключом n
+                byte[] e_ = CopyTo(open_key, 0, 2);                     //в массив байтов из входной строки копируем часть с ключом e
+                n = new BigInteger(n_);                                 //преобразуем в число
+                if (n < 0) n = plusforbytes(bytelen * 2) + n;           //исправляем если отрицательное
+                e = new BigInteger(e_);                                 //преобразуем в число
+                if (e < 0) e  = plusforbytes(2) + e;                    //исправляем если отрицательное
+                byte[] str = ReadFromFile(name);                            //читаем байты из файла
+                int len = str.Length;                                       //длина в байтах
+                BigInteger[] arr_crypt = new BigInteger[len];               //создание массива для записи в него зашифрованных кодов символов
+                for (int i = 0; i < len; i+=8)                              //ПРОЦЕСС ШИФРОВАНИЯ
+                {
+                    double iter_double = i+1;                                   //*сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
                     int progress = (int)(iter_double / len * 100);              //*отображает прогресс
                     Console.CursorLeft -= 3;                                    //*
                     Console.Write($"{progress + "%",3}");                       //*
-                    int x = ((int)str.ElementAt(i) * (i + 1));                  //шифрование i-го элемента строки и запись результата в массив arr_crypt
-                    arr_crypt[i] = Encrypt_num(x);                              //
-                }
-                string outBob = "";                                         //создание конечной строки
-                for (int i = 0; i < len; i++)                               //
-                {
-                    byte[] BY = arr_crypt[i].ToByteArray();                     //преобразовали BigInteger в массив байтов
-                    string s = "";                                              //
-                    s = BitConverter.ToString(BY).Replace("-", "");             //записываем массив байтов в строку в 16 ричной системе,заменяя "-" на ""
-                    while (s.Length < lenforword) s = s.Insert(s.Length, "0");  //добивание коротких слов нулями
-                    if (s.Length > lenforword) s = s.Remove(lenforword);        //убираем незначащие нули в слишком длинных словах
-                    outBob += s;                                                //запись в конечную строку
-                }
 
-                WriteInFile("Bob.txt", outBob);                             //запись в файл зашифрованного сообщения
-                Console.WriteLine(); Console.WriteLine("Ready");                                 //
+                    bool[] flag = new bool[8];                                  //массив флагов для обозначения кол-ва потоков
+                    for (int j = 0; j < 8; j++) flag[j] = false;                //заполняе их false
+                    byte[] b = new byte[8];                                     //массив байт куда запишем элементы входной строки
+                    for (int j = 0; j < 8; j++)                                 //проверка сколько можно прочитать символов после i-го
+                    {
+                        if ((i + j) < len)                                      //если есть что читать
+                        {
+                            b[j] = str[i + j];                                  //читаем
+                            flag[j] = true;                                     //и подниамем флаг
+                        }
+                        else j = 7;                                             //иначе закончить цикл
+                    }
+                    Task<BigInteger>[] task = new Task<BigInteger>[7];                      //массив тасков
+                    task[0] = new Task<BigInteger>(() => { return Encrypt_num(b[1]); });    //Task это параллельная задача
+                    task[1] = new Task<BigInteger>(() => { return Encrypt_num(b[2]); });    //Task будет вызван если прочитали слово для task'а
+                    task[2] = new Task<BigInteger>(() => { return Encrypt_num(b[3]); });    //
+                    task[3] = new Task<BigInteger>(() => { return Encrypt_num(b[4]); });    //НА КАЖДЫЙ ТАСК  
+                    task[4] = new Task<BigInteger>(() => { return Encrypt_num(b[5]); });    //СТАТИЧЕСКИ ЗАДАЕМ СООТВЕТСТВИЕ
+                    task[5] = new Task<BigInteger>(() => { return Encrypt_num(b[6]); });    //С ШИФРУЕМЫМИ ЭЛЕМЕНТАМИ МАССИВА
+                    task[6] = new Task<BigInteger>(() => { return Encrypt_num(b[7]); });    //
+                    for (int j = 1; j < 8; j++)                                         //7 раз проверяем флаги
+                    {
+                        if (flag[j])                                                    //если флаг поднят,то запустить task
+                            task[j - 1].Start();                                        //
+                        else j = 7;                                                     //иначе закончить цикл
+                    }
+                    arr_crypt[i] = Encrypt_num(b[0]);                                   //записываем в массив зашифрованных чисел 1 число
+                    for (int j = 1; j < 8; j++)                                         //потом через проверку флагов дописываем результаты из потоков
+                    {
+                        if (flag[j])                                                    //если флаг поднят
+                        {
+                            task[j - 1].Wait();                                         //ждем завершения вычислений
+                            arr_crypt[i + j] = task[j - 1].Result;                      //запсиываем
+                        }
+                        else j = 7;                                                     //иначе закончить цикл
+                    }
+                }
+                byte[] name_ = Encoding.ASCII.GetBytes(name);                       //запишем имя файла в массив байтов
+                int lenname = name_.Length;                                         //длина имени
+                byte[] outBob = new byte[arr_crypt.Length * bytelen * 2 + 1 + lenname];       //создание конечной строки
+                outBob[0] = Convert.ToByte(lenname);                                //записываем в 0 элемент длину имени
+                for (int i = 1; i < lenname + 1; i++) outBob[i] = name_[i - 1];     //записываем имя
+                int iter = 0;                                                       //итератор для выходного массива
+                for (int i = 0; i < len; i++)                                       //
+                {
+                    byte[] BY = new byte[bytelen * 2];                                          //создаем массив байтов длины в байтах одного заифрованного байта
+                    byte[] x = arr_crypt[i].ToByteArray();                                      //преобразовали BigInteger в массив байтов
+                    if (x.Length <= bytelen * 2)                                                //если длина массива оказалась меньше ожидаемой,то дополняем нулями
+                    {
+                        for (int j = 0; j < x.Length; j++) BY[j] = x[j];                            //
+                        for (int j = x.Length; j < BY.Length; j++) BY[j] = 0;                       //
+                    }
+                    if (x.Length > bytelen * 2)                                                 //Если оказалась больше,то уберем незначащие нули
+                        BY = CopyTo(x, 0, BY.Length);                                               //
+                    for (int j = 0; j < bytelen * 2; j++) outBob[j + iter + lenname + 1] = BY[j];   //добавляем в конечный массив массив этой итерации цикла
+                    iter += bytelen * 2;                                                        //наращиваем итератор(прибавляем столько,сколько весит 1 зашифрованный байт)
+                }
+                WriteInFile("Bob", outBob);                                 //запись в файл зашифрованного сообщения
+                Console.WriteLine();
+                time = DateTime.Now.Minute * 60 + DateTime.Now.Second - time;       //подсчет времени работы программы
+                Console.WriteLine($"Your time {time + "sec",7}. Ready");            //
             }
             /**/
             /**/
             if (ch == "3")                                         //Расшифруем текст из файла Bob
             {
+                int time = DateTime.Now.Minute*60 + DateTime.Now.Second;    //записывае время начала работы прораммы
                 Console.CursorTop--;                                        //
                 Console.Write($"Decrypt:{"0%",3}");                         //
-                string str_buff = ReadFromFile("secret_key.txt");           //буфферная строка,для определения глобальной длины массива байтов
-                string n_ = "";
-                for (int i = str_buff.Length / 2; i < str_buff.Length; i++) n_ += str_buff[i];
-                str_buff = str_buff.Remove(str_buff.Length / 2);
+                byte[] str_buff = ReadFromFile("secret_key");               //в этот массив читае данные из секретного ключа
+                byte[] n_ = new byte[str_buff.Length/2];                    //массив общей части(половина от всей длины)
+                for (int i = str_buff.Length / 2; i < str_buff.Length; i++) //читаем вторую половину входного массива
+                    n_[i- str_buff.Length / 2] = str_buff[i];                   //и записываем в массив общего ключа
+                byte[] d_ = new byte[str_buff.Length / 2];                  //массив секретно части(половина от всей длины)
+                for (int i = 0; i < str_buff.Length/2; i++)                 //читаем первую половину входного массива
+                    d_[i] = str_buff[i];                                        //и записываем в ассив секретного ключа
                 bytelen = str_buff.Length / 4;                              //устанавливаем глобалную длину массивов байтов
-                lenforword = bytelen * 4;                                   //устанавливаем глоабльную длину слова
-                n = HexToDec(n_);                                           //записываем общую часть ключей
-                d = HexToDec(str_buff);                                     //записываем секретный ключ
+                lenforword = str_buff.Length;                               //длинна входного массива
+                n = new BigInteger(n_);                                     //записываем общую часть ключей
+                if (n < 0) n = plusforbytes(bytelen * 2) + n;               //поправка если отрицательное число
+                d = new BigInteger(d_);                                     //записываем секретный ключ
+                if (d < 0) d = plusforbytes(bytelen * 2) + d;               //поправка если отрицательное число
 
-                string str = ReadFromFile("Bob.txt");                       //
-
+                byte[] str = ReadFromFile("Bob");                           //читаем из файла массив байтов с зашифрованным сообщением
+                int lenname = Convert.ToInt32(str[0]);                      //считывае длину имени файла в который запишем расшифрованное сообщение
+                byte[] name_ = new byte[lenname];                           //массив для получения имени
+                for (int i = 1; i < lenname + 1; i++) name_[i - 1] = str[i];//записываем в массив имя
+                string name = Encoding.ASCII.GetString(name_);              //переводим имя из массива байтов в строку
                 int cursor_top_temp = Console.CursorTop;                    //Сохраняем позицию указателя от верхнего края
                 int cursor_left_temp = Console.CursorLeft - 3;              //Сохраняем позицию указателя от левого края
 
-                string arr_dcrypt = "";                                     //конечная строка
-                int iter = 1;                                               //позиция символа в расшифрованной строке
-                for (int i = 0; i < str.Length; i += bytelen * 16)          //пока не будет достигнут конец файла
+                byte[] arr_dcrypt = new byte[str.Length/(bytelen*2)];       //конечный массив
+                int iter = 0;                                               //сколько байт расшифровали()
+                for (int i = lenname + 1; i < str.Length; i += bytelen * 16)//читаем весь входной массив до конца
                 {
-                    bool flag_1 = false;                //инициализация флагов
-                    bool flag_2 = false;                //если true,то Task с тем же номером выполнится
-                    bool flag_3 = false;                //
-                    BigInteger BI_0 = 0;                //инициализцаия переменных куда считаем слова(1 слово в шифре = 1 символ в изначальном тексте)
-                    BigInteger BI_1 = 0;                //
-                    BigInteger BI_2 = 0;                //
-                    BigInteger BI_3 = 0;                //
-                    BI_0 = ReadNextSymbols(str, i);                                     //без проверки читаем слово
-                    if (BI_0 < 0) BI_1 = plusforbytes(bytelen * 2) + BI_0;              //ибо цикл сюда не зашел бы,если бы не мог читать
-                    if ((i + bytelen * 4) < str.Length)                                 //если можем считать еще 1 слово,после 1-го
+                    bool[] flag = new bool[8];          //инициализация флагов,если true,то Task с тем же номером выполнится
+                    for (int j = 0; j < 7; j++)         //все флаги забиываем false
+                        flag[j] = false;                    //
+                    BigInteger[] BI = new BigInteger[8];//инициализцаия переменных куда считаем слова(1 слово в шифре = 1 символ в изначальном тексте)
+                    byte[][] b = new byte[8][];         //массив массивов байтов(из 1 массива получи 1 байт после расшифровки)
+                    for (int j=0;j<8;j++)               //задаем ширину матрицы байтов
+                        b[j]= new byte[bytelen * 2];    //
+                    for (int g = 0; g < 8; g++)         //проверка сколько можно байт прочитать(при g=0 всегда true)
                     {
-                        BI_1 = ReadNextSymbols(str, i + bytelen * 4);                   //читаем слово
-                        if (BI_1 < 0) BI_1 = plusforbytes(bytelen * 2) + BI_1;          //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
-                        flag_1 = true;                                                  //поднимаем флаг что прочитали 2 слова
-                    }
-                    if ((i + bytelen * 8) < str.Length)                                 //если можем считать еще 1 слово,после 2-го
-                    {
-                        BI_2 = ReadNextSymbols(str, i + bytelen * 8);                   //читаем слово
-                        if (BI_2 < 0) BI_2 = plusforbytes(bytelen * 2) + BI_2;          //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
-                        flag_2 = true;                                                  //поднимаем флаг что прочитали 3 слова
-                    }
-                    if ((i + bytelen * 12) < str.Length)                                //если можем считать еще 1 слово,после 3-го
-                    {
-                        BI_3 = ReadNextSymbols(str, i + bytelen * 12);                  //читаем слово
-                        if (BI_3 < 0) BI_3 = plusforbytes(bytelen * 2) + BI_3;          //проблема при переводе из массива байтов в BigInteger,эта строка приводит все в порядок
-                        flag_3 = true;                                                  //поднимаем флаг что прочитали 4 слова
-                    }
-                    Task<BigInteger> task_1 = new Task<BigInteger>(() => { return Decrypt_num(BI_1); });    //Task это параллельная задача
-                    Task<BigInteger> task_2 = new Task<BigInteger>(() => { return Decrypt_num(BI_2); });    //Task будет вызван если прочитали слово для task'а
-                    Task<BigInteger> task_3 = new Task<BigInteger>(() => { return Decrypt_num(BI_3); });    //
-                    BigInteger decr_0 = 0;                      //в эти переменные запишем расшифрованные слова
-                    BigInteger decr_1 = 0;                      //
-                    BigInteger decr_2 = 0;                      //
-                    BigInteger decr_3 = 0;                      //
-                    int res_0 = 0;                              //в эти переменные запишем конечный код символа
-                    int res_1 = 0;                              //
-                    int res_2 = 0;                              //
-                    int res_3 = 0;                              //
-                    if (flag_1) task_1.Start();                         //если прочитано 2 слова-запускаем task в параллельный процесс(итого 2 прцоесса)
-                    if (flag_2) task_2.Start();                         //если прочитано 3 слова-запускаем task в параллельный процесс(итого 3 процесса)
-                    if (flag_3) task_3.Start();                         //если прочитано 4 слова-запускаем task в параллельный процесс(итого 4 процесса)
-                    decr_0 = Decrypt_num(BI_0);                         //расшифровываем слово
-                    res_0 = (int)(decr_0 / iter);                       //делим расшифрованное число,для получение начального числа
-                    if (flag_1)                                         //если прочитано 2 слова
-                    {
-                        task_1.Wait();                                  //ждем завершения процесса с task_1
-                        decr_1 = task_1.Result;                         //записываем расшифрованный результат 
-                        res_1 = (int)(decr_1 / (iter + 1));             //делим расшифрованное число,для получение начального числа
-                    }
-                    if (flag_2)                                         //если прочитано 3 слова
-                    {
-                        task_2.Wait();                                  //ждем завершения процесса с task_2
-                        decr_2 = task_2.Result;                         //записываем расшифрованный результат 
-                        res_2 = (int)(decr_2 / (iter + 2));             //делим расшифрованное число,для получение начального числа
-                    }
-                    if (flag_3)                                         //если прочитано 4 слова
-                    {   
-                        task_3.Wait();                                  //ждем завершения процесса с task_3
-                        decr_3 = task_3.Result;                         //записываем расшифрованный результат 
-                        res_3 = (int)(decr_3 / (iter + 3));             //делим расшифрованное число,для получение начального числа
-                    }
-                    iter += 4;                                          //увеличиваем число,на которое делимм
-                    arr_dcrypt += Convert.ToChar(res_0).ToString();     //преобразуем код символа в символ,и записываем в конечную строку 1 символ
-                    if (flag_1)                                                 //если прочитано 2 слова
-                    {
-                        arr_dcrypt += Convert.ToChar(res_1).ToString();         //преобразуем код символа в символ,и записываем в конечную строку 2 символ
-                        if (flag_2)                                             //если прочитано 3 слова
+                        if ((i + bytelen * 2*g) < str.Length)                                 //если можем считать еще 1 массив байтов,после g-го
                         {
-                            arr_dcrypt += Convert.ToChar(res_2).ToString();     //преобразуем код символа в символ,и записываем в конечную строку 3 символ
-                            if (flag_3)                                         //если прочитано 4 слова
-                            {   
-                                arr_dcrypt += Convert.ToChar(res_3).ToString(); //преобразуем код символа в символ,и записываем в конечную строку 4 символ
-                            }
+                            for (int j = 0; j < bytelen * 2; j++) b[g][j] = str[j + i + bytelen * 2*g]; //считываем массив из входного массива
+                            BI[g] = new BigInteger(b[g]);                                               //преобразуе в число
+                            if (BI[g] < 0) BI[g] = plusforbytes(bytelen * 2) + BI[g];                   //поправка если отрицательное число
+                            flag[g] = true;                                                             //поднимаем флаг что прочитали g слов
                         }
                     }
+                    Task<BigInteger>[] task = new Task<BigInteger>[7];                      //массив task'ов
+                    task[0] = new Task<BigInteger>(() => { return Decrypt_num(BI[1]); });   //Task это параллельная задача
+                    task[1] = new Task<BigInteger>(() => { return Decrypt_num(BI[2]); });   //Task будет вызван если прочитали слово для task'а
+                    task[2] = new Task<BigInteger>(() => { return Decrypt_num(BI[3]); });   //
+                    task[3] = new Task<BigInteger>(() => { return Decrypt_num(BI[4]); });   //НА КАЖДЫЙ ТАСК  
+                    task[4] = new Task<BigInteger>(() => { return Decrypt_num(BI[5]); });   //СТАТИЧЕСКИ ЗАДАЕМ СООТВЕТСТВИЕ
+                    task[5] = new Task<BigInteger>(() => { return Decrypt_num(BI[6]); });   //С РАСШИФРОВЫВАЕМЫМИ ЭЛЕМЕНТАМИ МАССИВА
+                    task[6] = new Task<BigInteger>(() => { return Decrypt_num(BI[7]); });   //
+                    
+                    int[] res = new int[8];                             //в эти переменные запишем расшифрованный байт
+                    for (int j = 0; j < 7; j++)                         //по флагам запускаем параллельные task'и
+                        if (flag[j + 1]) task[j].Start();               //если прочитано j+1 слово-запускаем task в параллельный процесс(итого j+1 прцоессов)
+                    BigInteger x= Decrypt_num(BI[0]);                   //в основном потоке расшифровываем один из массивов
+                    res[0] = (int)x;                                    //расшифровываем слово
+
+                    for (int j = 0; j < 7; j++)                         //записываем рузельтаты с запущенных параллельных процессов
+                        if (flag[j + 1])                                //если прочитано j+1 слов
+                        {
+                            task[j].Wait();                             //ждем завершения процесса task[j]
+                            res[j + 1] = (int)task[j].Result;           //записываем расшифрованный результат 
+                        }
+
+                    for (int j = 0; j < 8; j++)                             //и записываем все 
+                        if (flag[j]) arr_dcrypt[iter + j] = (byte)res[j];   //в выходной массив
+
+
+                    iter += 8;                                              //увеличиваем итератор на 8
                     double iter_double = iter - 1;                                          //*сохраняем целочисленные переменные в вещественные для правильного вычисления прцоцента
                     int progress = (int)((iter_double * lenforword) / str.Length * 100);    //*вычисляем процент
                     Console.SetCursorPosition(cursor_left_temp, cursor_top_temp);           //*переходим на заданную позицию
-                    Console.WriteLine($"{progress + "%",3}");                               //*выводим процент выполнения
+                    Console.WriteLine($"{progress/2 + "%",3}");                             //*выводим процент выполнения
                 }
-                WriteInFile("Alice.txt", arr_dcrypt);                               //запись результата в файл
-                Console.WriteLine("Ready");                                         //
-
+                WriteInFile(name, arr_dcrypt);                               //запись результата в файл
+                time = DateTime.Now.Minute * 60 + DateTime.Now.Second - time;//вычисление времени работы программы
+                Console.WriteLine($"Your time {time+"sec", 7}. Ready");      //
             }
             else if (ch == "0") return;                                         //выход из программы
 
